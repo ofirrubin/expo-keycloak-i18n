@@ -20,8 +20,8 @@ interface AuthContextType {
     token: string | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (authResponse: any) => Promise<void>;
     loginWithCredentials: (username: string, password: string) => Promise<void>;
+    loginWithBrowser: () => Promise<void>;
     logout: () => Promise<void>;
     refreshToken: () => Promise<string | null>;
 }
@@ -77,15 +77,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loadStoredAuth();
     }, [loadStoredAuth]);
 
-    const login = async (authResponse: any) => {
-        if (authResponse?.params?.access_token) {
-            const accessToken = authResponse.params.access_token;
-            const refreshToken = authResponse.params.refresh_token;
-
-            setToken(accessToken);
-            setUserFromToken(accessToken);
+    const setAuthSession = async (accessToken: string, refreshToken: string | undefined) => {
+        setToken(accessToken);
+        setUserFromToken(accessToken);
+        if (refreshToken) {
             await saveTokens(accessToken, refreshToken);
+        } else {
+            // If we don't get a new refresh token, maybe we should keep the old one?
+            // For now, let's assume we always get one or save what we have.
+            // In password grant we get one. In exchange code we get one.
+            await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
         }
+    };
+
+    const logout = async () => {
+        try {
+            const storedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+            if (storedRefreshToken) {
+                const discovery = getKeycloakEndpoints();
+                await AuthSession.revokeAsync({
+                    token: storedRefreshToken,
+                    tokenTypeHint: AuthSession.TokenTypeHint.RefreshToken,
+                    clientId: KEYCLOAK_CONFIG.clientId,
+                }, {
+                    revocationEndpoint: discovery.revocationEndpoint,
+                });
+            }
+        } catch (e) {
+            console.warn('Failed to revoke token on server', e);
+        }
+
+        setToken(null);
+        setUser(null);
+        await clearTokens();
+    };
+
+    const refreshAuthToken = async (): Promise<string | null> => {
+        const storedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+        if (!storedRefreshToken) {
+            await logout();
+            return null;
+        }
+
+        try {
+            const discovery = getKeycloakEndpoints();
+            const tokenResult = await AuthSession.refreshAsync(
+                {
+                    clientId: KEYCLOAK_CONFIG.clientId,
+                    refreshToken: storedRefreshToken,
+                },
+                {
+                    tokenEndpoint: discovery.tokenEndpoint,
+                }
+            );
+
+            if (tokenResult.accessToken) {
+                setToken(tokenResult.accessToken);
+                setUserFromToken(tokenResult.accessToken);
+                await saveTokens(tokenResult.accessToken, tokenResult.refreshToken || storedRefreshToken);
+                return tokenResult.accessToken;
+            }
+        } catch (error) {
+            console.error('Failed to refresh token', error);
+            await logout();
+        }
+        return null;
     };
 
     const loginWithCredentials = async (username: string, password: string) => {
@@ -111,45 +167,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const data = await response.json();
-        setToken(data.access_token);
-        setUserFromToken(data.access_token);
-        await saveTokens(data.access_token, data.refresh_token);
+        await setAuthSession(data.access_token, data.refresh_token);
     };
 
-    const logout = async () => {
-        setToken(null);
-        setUser(null);
-        await clearTokens();
-    };
-
-    const refreshAuthToken = async (): Promise<string | null> => {
-        const storedRefreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-        if (!storedRefreshToken) {
-            await logout();
-            return null;
-        }
-
+    const loginWithBrowser = async () => {
         try {
             const discovery = getKeycloakEndpoints();
-            const tokenResult = await AuthSession.refreshAsync(
+            const redirectUri = AuthSession.makeRedirectUri();
+
+            const authRequest = new AuthSession.AuthRequest({
+                clientId: KEYCLOAK_CONFIG.clientId,
+                scopes: ['openid', 'profile', 'email'],
+                redirectUri,
+            });
+
+            const result = await authRequest.promptAsync(
                 {
-                    clientId: KEYCLOAK_CONFIG.clientId,
-                    refreshToken: storedRefreshToken,
-                },
-                discovery
+                    authorizationEndpoint: discovery.authorizationEndpoint,
+                }
             );
 
-            if (tokenResult.accessToken) {
-                setToken(tokenResult.accessToken);
-                setUserFromToken(tokenResult.accessToken);
-                await saveTokens(tokenResult.accessToken, tokenResult.refreshToken || storedRefreshToken);
-                return tokenResult.accessToken;
+            if (result.type === 'success') {
+                const { code } = result.params;
+                const tokenResult = await AuthSession.exchangeCodeAsync({
+                    clientId: KEYCLOAK_CONFIG.clientId,
+                    code,
+                    redirectUri,
+                    extraParams: {
+                        code_verifier: authRequest.codeVerifier || "",
+                    }
+                }, {
+                    tokenEndpoint: discovery.tokenEndpoint,
+                });
+
+                await setAuthSession(tokenResult.accessToken, tokenResult.refreshToken);
             }
-        } catch (error) {
-            console.error('Failed to refresh token', error);
-            await logout();
+        } catch (e) {
+            console.error('Browser login failed', e);
+            throw e;
         }
-        return null;
     };
 
     return (
@@ -159,8 +215,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 token,
                 isAuthenticated: !!user,
                 isLoading,
-                login,
                 loginWithCredentials,
+                loginWithBrowser,
                 logout,
                 refreshToken: refreshAuthToken,
             }}

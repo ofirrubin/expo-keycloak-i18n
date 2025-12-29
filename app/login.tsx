@@ -9,12 +9,14 @@ import { Label } from '@/components/ui/label';
 import { useUniwind } from 'uniwind';
 import { Loader2 } from 'lucide-react-native';
 
+import { KEYCLOAK_CONFIG } from '@/config/keycloak';
+
 export default function LoginScreen() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { loginWithCredentials } = useAuth();
+    const { loginWithCredentials, loginWithBrowser } = useAuth();
     const router = useRouter();
     const { theme } = useUniwind();
 
@@ -37,6 +39,21 @@ export default function LoginScreen() {
         }
     };
 
+    const handleBrowserLogin = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            await loginWithBrowser();
+            router.replace('/(tabs)');
+        } catch (err: any) {
+            if (err?.type !== 'dismiss') {
+                setError('Login failed or was cancelled.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -53,53 +70,79 @@ export default function LoginScreen() {
                             Welcome back
                         </Text>
                         <Text className="text-sm text-muted-foreground text-center max-w-xs">
-                            Enter your credentials to access your account
+                            {KEYCLOAK_CONFIG.enablePasswordGrant
+                                ? "Enter your credentials to access your account"
+                                : "Sign in securely with your creative account"}
                         </Text>
                     </View>
 
-                    <View className="space-y-4">
-                        <View className="space-y-2">
-                            <Label className="text-foreground">Username</Label>
-                            <Input
-                                placeholder="name@example.com"
-                                value={username}
-                                onChangeText={setUsername}
-                                autoCapitalize="none"
-                                className="bg-background"
-                            />
-                        </View>
-                        <View className="space-y-2">
-                            <Label className="text-foreground">Password</Label>
-                            <Input
-                                placeholder="••••••••"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                                className="bg-background"
-                            />
-                        </View>
+                    {KEYCLOAK_CONFIG.enablePasswordGrant ? (
+                        <View className="space-y-4">
+                            <View className="space-y-2">
+                                <Label className="text-foreground">Username</Label>
+                                <Input
+                                    placeholder="name@example.com"
+                                    value={username}
+                                    onChangeText={setUsername}
+                                    autoCapitalize="none"
+                                    className="bg-background"
+                                />
+                            </View>
+                            <View className="space-y-2">
+                                <Label className="text-foreground">Password</Label>
+                                <Input
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry
+                                    className="bg-background"
+                                />
+                            </View>
 
-                        {error && (
-                            <Text className="text-sm font-medium text-destructive text-center">
-                                {error}
-                            </Text>
-                        )}
-
-                        <Button
-                            onPress={handleLogin}
-                            disabled={loading}
-                            className="mt-4 active:scale-[0.98] transition-all"
-                        >
-                            {loading ? (
-                                <View className="flex-row items-center gap-2">
-                                    <Loader2 className="animate-spin text-primary-foreground" size={18} />
-                                    <Text className="text-primary-foreground">Signing in...</Text>
-                                </View>
-                            ) : (
-                                <Text className="text-primary-foreground font-semibold">Sign In</Text>
+                            {error && (
+                                <Text className="text-sm font-medium text-destructive text-center">
+                                    {error}
+                                </Text>
                             )}
-                        </Button>
-                    </View>
+
+                            <Button
+                                onPress={handleLogin}
+                                disabled={loading}
+                                className="mt-4 active:scale-[0.98] transition-all"
+                            >
+                                {loading ? (
+                                    <View className="flex-row items-center gap-2">
+                                        <Loader2 className="animate-spin text-primary-foreground" size={18} />
+                                        <Text className="text-primary-foreground">Signing in...</Text>
+                                    </View>
+                                ) : (
+                                    <Text className="text-primary-foreground font-semibold">Sign In</Text>
+                                )}
+                            </Button>
+                        </View>
+                    ) : (
+                        <View className="space-y-4">
+                            {error && (
+                                <Text className="text-sm font-medium text-destructive text-center">
+                                    {error}
+                                </Text>
+                            )}
+                            <Button
+                                onPress={handleBrowserLogin}
+                                disabled={loading}
+                                className="mt-4 active:scale-[0.98] transition-all"
+                            >
+                                {loading ? (
+                                    <View className="flex-row items-center gap-2">
+                                        <Loader2 className="animate-spin text-primary-foreground" size={18} />
+                                        <Text className="text-primary-foreground">Connecting...</Text>
+                                    </View>
+                                ) : (
+                                    <Text className="text-primary-foreground font-semibold">Login with SSO</Text>
+                                )}
+                            </Button>
+                        </View>
+                    )}
 
                     <View className="mt-8">
                         <Text className="text-center text-xs text-muted-foreground">
