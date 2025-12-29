@@ -1,5 +1,8 @@
 # Mobile App Template
 
+# Installation
+npx create-expo-app my-new-app --template https://github.com/ofirrubin/expo-keycloak-i18n
+
 A clean, modern React Native template pre-configured with:
 - **Expo Router** (File-based routing)
 - **Uniwind** (Tailwind CSS styling)
