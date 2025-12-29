@@ -1,0 +1,25 @@
+{
+    "home": {
+        "title": "Home",
+        "description": "Experience the refined tab navigation.",
+        "dark_mode_status": "Dark mode enabled.",
+        "browse_docs": "Browse the Docs",
+        "star_repo": "Star the Repo"
+    },
+    "feed": {
+        "title": "Feed",
+        "content": "Feed Content",
+        "description": "Stay updated with the latest reminders."
+    },
+    "tabs": {
+        "home": "Home",
+        "feed": "Feed",
+        "profile": "Profile"
+    },
+    "profile": {
+        "title": "Profile",
+        "language": "Language",
+        "appearance": "Appearance",
+        "sign_out": "Sign Out"
+    }
+}

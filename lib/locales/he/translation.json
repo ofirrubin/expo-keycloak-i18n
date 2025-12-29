@@ -1,0 +1,25 @@
+{
+    "home": {
+        "title": "בית",
+        "description": "התנסו בניווט הלשוניות המשופר.",
+        "dark_mode_status": "מצב כהה מופעל.",
+        "browse_docs": "עיון בדוקומנטציה",
+        "star_repo": "דרגו את הריפו"
+    },
+    "feed": {
+        "title": "פיד",
+        "content": "תוכן הפיד",
+        "description": "הישארו מעודכנים בתזכורות האחרונות."
+    },
+    "tabs": {
+        "home": "בית",
+        "feed": "פיד",
+        "profile": "פרופיל"
+    },
+    "profile": {
+        "title": "פרופיל",
+        "language": "שפה",
+        "appearance": "מראה",
+        "sign_out": "התנתק"
+    }
+}
