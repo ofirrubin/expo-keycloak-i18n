@@ -73,7 +73,7 @@
     "uniwind": "^1.2.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.26.0",
+    "@babel/core": "^7.29.6",
     "@types/react": "~19.1.10",
     "i18next-cli": "^1.33.5",
     "prettier": "^3.6.2",
